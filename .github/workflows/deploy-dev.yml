@@ -1,0 +1,37 @@
+name: Deploy DEV
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [develop]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build
+        run: |
+          mkdir build
+          echo "DEV $(date)" > build/index.html
+
+      - name: Upload files
+        uses: appleboy/scp-action@v0.1.4
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_KEY }}
+          source: "build"
+          target: "/tmp/deploy-build"
+
+      - name: Deploy on server
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_KEY }}
+          script: |
+            cd /tmp/deploy-build
+            /var/www/test-cd-ci/deploy.sh dev 1.0.0-beta.${{ github.run_number }}
