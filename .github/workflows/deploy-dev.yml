@@ -3,35 +3,45 @@ name: Deploy DEV
 on:
   workflow_dispatch:
   push:
-    branches: [develop]
+    branches: [ develop ]
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: Build
-        run: |
-          mkdir build
-          echo "DEV $(date)" > build/index.html
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
 
-      - name: Upload files
-        uses: appleboy/scp-action@v0.1.4
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Angular (DEV)
+        run: npm run build -- --configuration=development
+
+      - name: Upload build
+        uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.DEPLOY_HOST }}
+          port: 2222
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_KEY }}
-          source: "build"
+          source: "dist/test-cd-ci/browser/**"
           target: "/tmp/deploy-build"
 
       - name: Deploy on server
-        uses: appleboy/ssh-action@v1.0.0
+        uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.DEPLOY_HOST }}
+          port: 2222
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_KEY }}
           script: |
+            VERSION="1.0.0-beta.${{ github.run_number }}"
             cd /tmp/deploy-build
-            /var/www/test-cd-ci/deploy.sh dev 1.0.0-beta.${{ github.run_number }}
+            /var/www/test-cd-ci/deploy.sh dev $VERSION
